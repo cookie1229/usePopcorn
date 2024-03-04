@@ -3,6 +3,7 @@ import StarRating from './StarRating';
 import { useMovies } from './useMovies';
 import { useLocalStorageState } from './useLocalStorageState';
 import { useKey } from './useKey';
+import { Search } from './Search';
 
 
 const tempMovieData = [
@@ -56,7 +57,9 @@ const KEY = 'aabfc447';
 
 const average = arr =>
   arr.reduce((acc, cur, i, arr) => acc + cur / arr.length, 0);
+
 export default function App() {
+
   //to fatch data asap when App mount
   //dont setstate in the top level of render logic!!
   // const [watched, setWatched] = useState(function(){
@@ -82,12 +85,12 @@ export default function App() {
 
   // console.log('During render');
 
-  // useEffect(
-  //   function () {
-  //     console.log('d');
-  //   },
-  //   [query],
-  // );
+  useEffect(
+    function () {
+      console.log(`query:\n${query}`);
+    },
+    [query],
+  );
 
   function handleSelectMovie(id) {
     setSelectedId(selectedId => (id === selectedId ? null : id));
@@ -99,13 +102,15 @@ export default function App() {
 
   function handleAddWatched(movie) {
     setWatched(watched => [...watched, movie]);
-
-
-    
   }
 
-  function handleDelatedWatched(id) {
+  function handleDeletedWatched(id) {
     setWatched(watched => watched.filter(movie => movie.imdbID !== id));
+  }
+
+  const clearQuery = () => {
+    console.log('Clearing...\n');
+    setQuery('');
   }
  
   //eachtime watched movies list is updated. save the data in localstorage
@@ -148,7 +153,7 @@ export default function App() {
     <>
       <NavBar>
         <Logo />
-        <Search query={query} setQuery={setQuery} />
+        <Search query={query} setQuery={setQuery} clearQuery={clearQuery} />
         <NumResult movies={movies} />
       </NavBar>
 
@@ -188,7 +193,7 @@ export default function App() {
               <WatchSummary watched={watched} />
               <WatchedMovieList
                 watched={watched}
-                onDeleteWatched={handleDelatedWatched}
+                onDeleteWatched={handleDeletedWatched}
               />
             </>
           )}
@@ -196,7 +201,7 @@ export default function App() {
       </Main>
     </>
   );
-}
+};
 
 function Loader() {
   return <p className="loader"> Loading </p>;
@@ -226,33 +231,44 @@ function NumResult({movies}) {
     </p>
   );
 }
-function Search({query, setQuery, tempQuery}) {
-    //useRef
-    const inputEl = useRef(null)
-
-    useEffect(function(){
-     inputEl.current.focus()
-    },[])
 
 
-     useKey("Enter",function(){
-      function callback(e){
-        // if input element is already focus. don;t do anything
-         if(document.activeElement === inputEl.current) return;
-         if(e.code === 'Enter'){
-           inputEl.current.focus()
-           setQuery("")
-         }
-       }
+
+
+
+// function NumResults({ movies }) {
+//   return (
+//     <p className="num-results">
+//       Found <strong>{movies.length}</strong> results
+//     </p>
+//   );
+// }
+
+    // useEffect(function(){
+    //  inputEl.current.focus()
+    // },[])
+
+
+    //  useKey("Enter", function () {
+    //   function callback(e){
+    //     // if input element is already focus. don;t do anything
+    //      if(document.activeElement === inputEl.current) return;
+    //      if(e.code === 'Enter') {
+    //        inputEl.current.focus();
+    //        setQuery("")
+    //      }
+    //    }
      
-        // add event listener to dom
-       document.addEventListener("keydown",callback);
+    //     // add event listener to dom
+    //    document.addEventListener("keydown",callback);
  
-       //each initial render, execute the below the event listener
-       return function (){
-         document.addEventListener("keydown",callback);
-       }
-     })
+    //    //each initial render, execute the below the event listener
+    //    return function (){
+    //      document.addEventListener("keydown",callback);
+    //    }
+    //  });
+
+    
     // useEffect(
     //   function () {
     //     document.addEventListener('keydown', function (e) {
@@ -285,20 +301,6 @@ function Search({query, setQuery, tempQuery}) {
 
     // }),[])
       
-    
-  
-  return (
-    <input
-      className="search"
-      type="text"
-      placeholder="Search movies..."
-      value={query}
-      onChange={e => setQuery(e.target.value)}
-      ref={inputEl}
-    />
-  );
-}
-
 function Main({children}) {
   return <main className="main">{children}</main>;
 }

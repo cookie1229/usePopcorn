@@ -1,5 +1,6 @@
 import {useState} from 'react';
 import {PropTypes} from 'prop-types';
+
 //put it outside the component if it wont change so that it will not need to be call call and the object be regernerted each time when component update
 const containerStyle = {
   display: 'flex',
@@ -16,7 +17,7 @@ const startContainer = {
 StarRating.propTypes = {
   maxRating: PropTypes.number.isRequired,
   defaultRating: PropTypes.number,
-  coloe: PropTypes.string,
+  color: PropTypes.string,
   size: PropTypes.number,
   message: PropTypes.array,
   className: PropTypes.string,
