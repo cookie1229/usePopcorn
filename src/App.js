@@ -1,5 +1,9 @@
-import {useState, useEffect} from 'react';
+import {useState, useEffect, useRef} from 'react';
 import StarRating from './StarRating';
+import { useMovies } from './useMovies';
+import { useLocalStorageState } from './useLocalStorageState';
+import { useKey } from './useKey';
+
 
 const tempMovieData = [
   {
@@ -55,13 +59,18 @@ const average = arr =>
 export default function App() {
   //to fatch data asap when App mount
   //dont setstate in the top level of render logic!!
-  const [movies, setMovies] = useState([]);
-  const [watched, setWatched] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  // const [watched, setWatched] = useState(function(){
+  //   const storedValue = localStorage.getItem("watched");
+  //   return JSON.parse(storedValue)
+  // });
   const tempQuery = 'interstellar';
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState(null);
+  //get the state by destructing the return of useMovies
+  const {movies,isLoading,error}=useMovies(query,handleCloseMovies)
+  const [watched,setWatched] = useLocalStorageState([],"watched")
+
+
 
   // useEffect(function () {
   //   console.log('After Initial render');
@@ -90,11 +99,18 @@ export default function App() {
 
   function handleAddWatched(movie) {
     setWatched(watched => [...watched, movie]);
+
+
+    
   }
 
   function handleDelatedWatched(id) {
     setWatched(watched => watched.filter(movie => movie.imdbID !== id));
   }
+ 
+  //eachtime watched movies list is updated. save the data in localstorage
+
+
   // it will keep fetching data from the api because setting state in render logic will immediately cause component to re-render itself and then run the function again, fetch again then setMovie again --- infinity loop!!
 
   //useEffect
@@ -117,74 +133,17 @@ export default function App() {
 
   //dependency of effect are always props and state
 
-  useEffect(
-    function () {
-      const controller = new AbortController();
 
-      async function fetchMovies() {
-        try {
-          setIsLoading(true);
-          setError('');
-          //always reset error at the begining!!
-          setError('');
-          const res = await fetch(
-            `https://www.omdbapi.com/?i=tt3896198&apikey=${KEY}&s=${query}`,
-            {signal: controller.signal},
-          );
 
-          //catch error
-          //after the error is being thrown. react will not run the below code
-          if (!res.ok)
-            throw new Error('Something went wrong with fetching movies');
-          const data = await res.json();
-          //in React strict mode, effect will run twice, therefore when console.log(data), it will console twice
-          //but in production ,it wont happened if remove the strictmode
-          //for no movie record found
-          if (data.Response === 'False') throw new Error('Movie not found');
 
-          console.log(data);
-          setMovies(data.Search);
-          setError('');
-
-          console.log(movies); //[],still state;
-        } catch (err) {
-          console.log(err.message);
-          if (err.name !== 'AbortError') {
-            setError(err.message);
-          }
-        } finally {
-          //alway run at the end
-          setIsLoading(false);
-        }
+  useEffect(function () {
+    document.addEventListener('keydown', function (e) {
+      if (e.code === 'Escape') {
+        handleCloseMovies();
+        console.log('closing');
       }
-
-      //when query is empty, remove all movies from the array and also reset the error back to nothing
-      if (!query.length) {
-        setMovies([]);
-        setError('');
-        return;
-      }
-      handleCloseMovies();
-      fetchMovies();
-
-      //when there is query change, the controller will abort the current fetch request to prevent download unnesscary data
-      return function () {
-        controller.abort();
-      };
-    },
-    [query],
-  );
-
-  //when pree ESC,  close the current movie detail
-
-  // useEffect(function () {
-  //   document.addEventListener('keydown', function (e) {
-  //     if (e.code === 'Escape') {
-  //       handleCloseMovies();
-  //       console.log('closing');
-  //     }
-  //   });
-  // }, [ ]);
+    });
+  }, [ ]);
   return (
     <>
       <NavBar>
@@ -268,6 +227,66 @@ function NumResult({movies}) {
   );
 }
 function Search({query, setQuery, tempQuery}) {
+    //useRef
+    const inputEl = useRef(null)
+
+    useEffect(function(){
+     inputEl.current.focus()
+    },[])
+
+
+     useKey("Enter",function(){
+      function callback(e){
+        // if input element is already focus. don;t do anything
+         if(document.activeElement === inputEl.current) return;
+         if(e.code === 'Enter'){
+           inputEl.current.focus()
+           setQuery("")
+         }
+       }
+     
+        // add event listener to dom
+       document.addEventListener("keydown",callback);
+ 
+       //each initial render, execute the below the event listener
+       return function (){
+         document.addEventListener("keydown",callback);
+       }
+     })
+    // useEffect(
+    //   function () {
+    //     document.addEventListener('keydown', function (e) {
+    //       if (e.code === 'Enter') {
+    //         inputEl.current.focus()
+    //       }
+    //     });
+    //   },
+    //   [],
+    // );
+
+    // useEffect((function(){
+    //   //create a function that when press Enter, input element will be focus and clear query
+    //   function callback(e){
+    //    // if input element is already focus. don;t do anything
+    //     if(document.activeElement === inputEl.current) return;
+    //     if(e.code === 'Enter'){
+    //       inputEl.current.focus()
+    //       setQuery("")
+    //     }
+    //   }
+    
+    //    // add event listener to dom
+    //   document.addEventListener("keydown",callback);
+
+    //   //each initial render, execute the below the event listener
+    //   return function (){
+    //     document.addEventListener("keydown",callback);
+    //   }
+
+    // }),[])
+      
+    
+  
   return (
     <input
       className="search"
@@ -275,6 +294,7 @@ function Search({query, setQuery, tempQuery}) {
       placeholder="Search movies..."
       value={query}
       onChange={e => setQuery(e.target.value)}
+      ref={inputEl}
     />
   );
 }
@@ -423,6 +443,15 @@ function MovieDetails({selectedId, onCloseMovie, onAddWatched, watched}) {
   const [isLoading, setIsLoading] = useState(false);
   const [userRating, setUserRating] = useState('');
 
+
+  const countRef = useRef(0)
+
+  useEffect(function(){
+    if(userRating){
+      countRef.current = countRef.current + 1;
+    }
+   
+  },[userRating])
   const isWatched = watched.map(watch => watch.imdbID).includes(selectedId);
   const watchedUserRating = watched.find(
     movie => movie.imdbID === selectedId,
@@ -440,6 +469,7 @@ function MovieDetails({selectedId, onCloseMovie, onAddWatched, watched}) {
     Actors: actors,
     Director: director,
     Genre: genre,
+    
   } = movie;
 
   console.log(runtime);
@@ -454,29 +484,30 @@ function MovieDetails({selectedId, onCloseMovie, onAddWatched, watched}) {
       imdbRating: Number(imdbRating),
       runtime: Number(runtime.split(' ').at(0)),
       userRating: Number(userRating),
+      countRatingDecisions: countRef.current,
     };
 
     // my methond to check whether the selected movies is already in the watchedmovieslist:
-    // if (watched.length > 0) {
-    //   const added = watched.some(watch => {
-    //     console.log(watch.imdbID);
-    //     return watch.imdbID === newWatchedMoviews.imdbID;
-    //     // if (watch.imdbID === newWatchedMoviews.imdbID) {
-    //     //   return true;
-    //     // } else {
-    //     //   return false;
-    //     // }
-    //   });
-    //   console.log(added);
-    //   if (added) {
-    //     onCloseMovie();
-    //   } else {
-    //     onAddWatched(newWatchedMoviews);
-    //   }
-    // } else {
+    if (watched.length > 0) {
+      const added = watched.some(watch => {
+        console.log(watch.imdbID);
+        return watch.imdbID === newWatchedMoviews.imdbID;
+        // if (watch.imdbID === newWatchedMoviews.imdbID) {
+        //   return true;
+        // } else {
+        //   return false;
+        // }
+      });
+      console.log(added);
+      if (added) {
+        onCloseMovie();
+      } else {
+        onAddWatched(newWatchedMoviews);
+      }
+    } else {
     onAddWatched(newWatchedMoviews);
     onCloseMovie();
-    // }
+    }
   }
 
   useEffect(
@@ -514,18 +545,19 @@ function MovieDetails({selectedId, onCloseMovie, onAddWatched, watched}) {
     },
     [title],
   );
+  useKey('Escape',onCloseMovie)
   //i comment the below code because the error caused by node version, it function well
-  useEffect(
-    function () {
-      document.addEventListener('keydown', function (e) {
-        if (e.code === 'Escape') {
-          onCloseMovie();
-          console.log('closing');
-        }
-      });
-    },
-    [onCloseMovie],
-  );
+  // useEffect(
+  //   function () {
+  //     document.addEventListener('keydown', function (e) {
+  //       if (e.code === 'Escape') {
+  //         onCloseMovie();
+  //         console.log('closing');
+  //       }
+  //     });
+  //   },
+  //   [onCloseMovie],
+  // );
 
   return (
     <>
